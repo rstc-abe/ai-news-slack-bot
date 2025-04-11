@@ -1,11 +1,9 @@
 import requests
 import datetime
 
-# GNews APIキー（取得したものをここに貼る）
-GNEWS_API_KEY = "68eb45c566997db30ec06723289bff3b"
-
-# Slack Webhook URL
-SLACK_WEBHOOK_URL = "https://hooks.slack.com/services/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"
+import os
+SLACK_WEBHOOK_URL = os.environ.get("SLACK_WEBHOOK_URL")
+GNEWS_API_KEY = os.environ.get("GNEWS_API_KEY")
 
 from datetime import datetime, timedelta
 
