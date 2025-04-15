@@ -11,7 +11,7 @@ from datetime import datetime, timedelta
 from datetime import datetime, timedelta, timezone
 
 def get_ai_news():
-    query = "AI OR 生成AI OR 人工知能 OR 機械学習 OR 深層学習"
+    query = "AI OR 生成AI OR 人工知能 OR 機械学習 OR 深層学習 OR ChatGPT OR LLM OR Claude OR Gemini OR OpenAI"
     url = f"https://gnews.io/api/v4/search?q={query}&lang=ja&token={GNEWS_API_KEY}&max=10"
     res = requests.get(url)
 
