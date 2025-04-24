@@ -1,92 +1,75 @@
-import requests
-import datetime
-
 import os
-SLACK_WEBHOOK_URL = os.environ.get("SLACK_WEBHOOK_URL")
-GNEWS_API_KEY = os.environ.get("GNEWS_API_KEY")
-
-from datetime import datetime, timedelta
-
-
+import openai
+import feedparser
+import requests
 from datetime import datetime, timedelta, timezone
 
-def get_ai_news():
-    query = "AI OR 生成AI OR 人工知能 OR 機械学習 OR 深層学習 OR ChatGPT OR LLM OR Claude OR Gemini OR OpenAI"
-    url = f"https://gnews.io/api/v4/search?q={query}&lang=ja&token={GNEWS_API_KEY}&max=10"
-    res = requests.get(url)
+# 環境変数からAPIキーとWebhookを取得（GitHub Secretsに設定してある想定）
+OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY")
+SLACK_WEBHOOK_URL = os.environ.get("SLACK_WEBHOOK_URL")
+openai.api_key = OPENAI_API_KEY
 
-    if res.status_code != 200:
-        print("❗ ステータスコード:", res.status_code)
-        print("📩 レスポンス内容:", res.text)
-        return []
+# 1週間以内のAIニュースをRSSから取得
+def fetch_weekly_news_from_rss():
+    rss_url = "https://news.google.com/rss/search?q=AI+OR+ChatGPT+OR+生成AI+OR+LLM&hl=ja&gl=JP&ceid=JP:ja"
+    feed = feedparser.parse(rss_url)
 
-    articles = res.json().get("articles", [])
-
-    # JSTでの前日日付
     jst = timezone(timedelta(hours=9))
-    jst_now = datetime.now(jst)
-    yesterday = (jst_now - timedelta(days=1)).strftime('%Y-%m-%d')
+    now = datetime.now(jst)
+    week_ago = now - timedelta(days=7)
 
-    # フィルター：publishedAtが前日の記事
-    filtered_articles = [a for a in articles if a['publishedAt'].startswith(yesterday)]
+    filtered_articles = []
+    for entry in feed.entries:
+        if hasattr(entry, 'published_parsed'):
+            published = datetime(*entry.published_parsed[:6], tzinfo=timezone.utc).astimezone(jst)
+            if published >= week_ago:
+                filtered_articles.append({
+                    "title": entry.title,
+                    "link": entry.link,
+                    "published": published.strftime('%Y-%m-%d')
+                })
 
     return filtered_articles
 
-def get_yesterday_date():
-    jst = timezone(timedelta(hours=9))
-    jst_now = datetime.now(jst)
-    return (jst_now - timedelta(days=1)).strftime('%Y-%m-%d')
+# OpenAI APIでAI関連のニュースを要約
+def summarize_ai_news(articles):
+    if not articles:
+        return "📭 過去1週間のAI関連ニュースは見つかりませんでした。"
 
-def post_to_slack_blockkit(news_list):
-    blocks = []
+    # ニュースを箇条書き形式で整形
+    article_list = "\n".join([f"- {a['title']} ({a['link']})" for a in articles])
 
-    # ヘッダー
-    blocks.append({
-        "type": "section",
-        "text": {
-            "type": "mrkdwn",
-            "text": "*📰 本日のAI関連ニュースまとめ*"
-        }
-    })
-    blocks.append({"type": "divider"})
+    prompt = f"""
+以下は過去1週間の技術ニュースのタイトル一覧です。この中から「AI」「生成AI」「機械学習」「ChatGPT」「LLM」「Claude」などに関する重要なニュースだけを選び、日本語で3〜5件に要約してください。必要に応じてURLも添えてください。
 
-    # 各記事ブロック
-    for article in news_list:
-        title = article['title']
-        url = article['url']
-        published = article['publishedAt'][:10]
-        description = article.get('description', '')
-        content = article.get('content', '')
+{article_list}
+"""
 
-        keywords = ["新モデル", "新バージョン", "発表", "リリース", "GPT", "Claude", "Gemini", "Mixtral", "Anthropic"]
-        is_new_model = any(kw in (description + content) for kw in keywords)
-        detail_line = f"\n🆕 *新機能*: {description[:100]}..." if is_new_model else ""
+    try:
+        response = openai.ChatCompletion.create(
+            model="gpt-4o",
+            messages=[
+                {"role": "system", "content": "あなたはニュースを日本語で要約するアシスタントです。"},
+                {"role": "user", "content": prompt}
+            ],
+            temperature=0.4
+        )
+        return response.choices[0].message.content.strip()
+    except Exception as e:
+        return f"❌ OpenAI APIで要約中にエラーが発生しました: {str(e)}"
 
-        blocks.append({
-            "type": "section",
-            "text": {
-                "type": "mrkdwn",
-                "text": f"📌 *<{url}|{title}>*\n🗓 {published}{detail_line}"
-            }
-        })
-        blocks.append({"type": "divider"})
-
-    # Slackへ送信
-    payload = {
-        "blocks": blocks
-    }
+# SlackにBlockKit形式で投稿
+def post_summary_to_slack(summary_text):
+    blocks = [
+        {"type": "section", "text": {"type": "mrkdwn", "text": "*📰 今週のAIニュースまとめ*"}},
+        {"type": "divider"},
+        {"type": "section", "text": {"type": "mrkdwn", "text": summary_text}}
+    ]
+    payload = {"blocks": blocks}
     requests.post(SLACK_WEBHOOK_URL, json=payload)
 
+# 実行処理
 if __name__ == "__main__":
-    articles = get_ai_news()
-
-    if not articles:
-        post_to_slack_blockkit([{
-            "title": f"📭 前日（{get_yesterday_date()}）のAI関連ニュースは見つかりませんでした。",
-            "url": "",
-            "publishedAt": "",
-            "description": "",
-            "content": ""
-        }])
-    else:
-        post_to_slack_blockkit(articles)
+    articles = fetch_weekly_news_from_rss()
+    summary = summarize_ai_news(articles)
+    post_summary_to_slack(summary)
