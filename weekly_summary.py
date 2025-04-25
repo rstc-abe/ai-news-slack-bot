@@ -64,26 +64,27 @@ def summarize_ai_news(articles):
         return f"❌ OpenAI APIで要約中にエラーが発生しました: {str(e)}"
 
 def format_summary_for_slack(summary_text):
-    # 改行とリンクを整形
-    formatted_lines = []
+    lines = []
     for line in summary_text.split('\n'):
         line = line.strip()
         if not line:
             continue
-        if line.startswith("1.") or line.startswith("2.") or line.startswith("3.") or line.startswith("4.") or line.startswith("5."):
-            formatted_lines.append(f"🔹 *{line[3:].strip()}*")
-        elif line.startswith("- [詳細はこちら]") or line.startswith("- 詳細はこちら"):
-            # Markdownリンク形式 → Slackのリンク形式に変換
+
+        # ***見出し*** → *見出し*
+        if line.startswith('***') and line.endswith('***'):
+            clean_line = line.strip('*')
+            lines.append(f"*{clean_line}*")
+        elif line.startswith("- [詳細はこちら]") or "http" in line:
+            # リンク整形
             url_start = line.find('(')
             url_end = line.find(')')
             if url_start != -1 and url_end != -1:
                 url = line[url_start+1:url_end]
-                formatted_lines.append(f"➡️ <{url}|▶ 詳細はこちら>")
+                lines.append(f"➡️ <{url}|▶ 詳細はこちら>")
         else:
-            formatted_lines.append(line)
+            lines.append(line)
 
-    formatted_summary = "\n".join(formatted_lines)
-    return formatted_summary
+    return "\n".join(lines)
 
 # Slack投稿
 def post_summary_to_slack(summary_text):
