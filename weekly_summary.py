@@ -66,28 +66,39 @@ def summarize_ai_news(articles):
 
 def format_summary_for_slack(summary_text):
     lines = []
+    current_title = None
+
     for line in summary_text.split('\n'):
         line = line.strip()
         if not line:
             continue
 
-        # 「1. **タイトル**」→ 「**1. タイトル**」へ正規化
-        match = re.match(r'^(\d+)\.\s+\*\*(.+?)\*\*$', line)
-        if match:
-            number = match.group(1)
-            title = match.group(2)
-            lines.append(f"**{number}. {title}**")
+        # 番号付き or Markdown太字タイトルを抽出 → Slack太字に変換
+        if re.match(r'^\d+\.\s+.*', line) or line.startswith('**') or line.startswith('・'):
+            title = re.sub(r'^\d+\.\s*', '', line)  # 「1. タイトル」→「タイトル」
+            title = title.strip('*')  # 「**タイトル**」→「タイトル」
+            current_title = f"🔹 *{title}*"
+            lines.append(current_title)
             continue
 
-        # 「- [詳細はこちら](URL)」→ Slackリンクに整形
-        if "http" in line and "(" in line and ")" in line:
-            start = line.find('(')
-            end = line.find(')')
-            if start != -1 and end != -1:
-                url = line[start+1:end]
-                lines.append(f"➡️ <{url}|▶ 詳細はこちら>")
-                continue
+        # Markdownリンク形式 → Slack形式に変換
+        if re.match(r'- \[.*?\]\((https?://.*?)\)', line):
+            match = re.search(r'\[(.*?)\]\((https?://.*?)\)', line)
+            if match:
+                text = match.group(1)
+                url = match.group(2)
+                lines.append(f"➡️ <{url}|▶ {text}>")
+            continue
 
+        # 単純なURL行にも対応（「- 詳細はこちら: https://...」など）
+        if re.match(r'^(https?://\S+)$', line) or 'http' in line:
+            url_match = re.search(r'(https?://[^\s\)]+)', line)
+            if url_match:
+                url = url_match.group(1)
+                lines.append(f"➡️ <{url}|▶ 詳細はこちら>")
+            continue
+
+        # その他の本文行
         lines.append(line)
 
     return "\n".join(lines)
