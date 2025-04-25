@@ -63,12 +63,37 @@ def summarize_ai_news(articles):
     except Exception as e:
         return f"❌ OpenAI APIで要約中にエラーが発生しました: {str(e)}"
 
-# SlackにBlockKit形式で投稿
+def format_summary_for_slack(summary_text):
+    # 改行とリンクを整形
+    formatted_lines = []
+    for line in summary_text.split('\n'):
+        line = line.strip()
+        if not line:
+            continue
+        if line.startswith("1.") or line.startswith("2.") or line.startswith("3.") or line.startswith("4.") or line.startswith("5."):
+            formatted_lines.append(f"🔹 *{line[3:].strip()}*")
+        elif line.startswith("- [詳細はこちら]") or line.startswith("- 詳細はこちら"):
+            # Markdownリンク形式 → Slackのリンク形式に変換
+            url_start = line.find('(')
+            url_end = line.find(')')
+            if url_start != -1 and url_end != -1:
+                url = line[url_start+1:url_end]
+                formatted_lines.append(f"➡️ <{url}|▶ 詳細はこちら>")
+        else:
+            formatted_lines.append(line)
+
+    formatted_summary = "\n".join(formatted_lines)
+    return formatted_summary
+
+# Slack投稿
 def post_summary_to_slack(summary_text):
+    formatted_text = format_summary_for_slack(summary_text)
+
     blocks = [
         {"type": "section", "text": {"type": "mrkdwn", "text": "*📰 今週のAIニュースまとめ*"}},
         {"type": "divider"},
-        {"type": "section", "text": {"type": "mrkdwn", "text": summary_text}}
+        {"type": "section", "text": {"type": "mrkdwn", "text": formatted_text}},
+        {"type": "divider"},
     ]
     payload = {"blocks": blocks}
     requests.post(SLACK_WEBHOOK_URL, json=payload)
