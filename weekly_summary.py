@@ -3,11 +3,13 @@ import openai
 import feedparser
 import requests
 from datetime import datetime, timedelta, timezone
+from openai import OpenAI
 
 # 環境変数からAPIキーとWebhookを取得（GitHub Secretsに設定してある想定）
 OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY")
 SLACK_WEBHOOK_URL = os.environ.get("SLACK_WEBHOOK_URL")
 openai.api_key = OPENAI_API_KEY
+client = OpenAI(api_key=os.environ.get("OPENAI_API_KEY"))
 
 # 1週間以内のAIニュースをRSSから取得
 def fetch_weekly_news_from_rss():
@@ -46,14 +48,17 @@ def summarize_ai_news(articles):
 """
 
     try:
-        response = openai.ChatCompletion.create(
+        response = client.chat.completions.create(
             model="gpt-4o",
             messages=[
-                {"role": "system", "content": "あなたはニュースを日本語で要約するアシスタントです。"},
+                {"role": "system", "content": "あなたはニュースを要約するアシスタントです。"},
                 {"role": "user", "content": prompt}
             ],
             temperature=0.4
         )
+
+        summary = response.choices[0].message.content
+        
         return response.choices[0].message.content.strip()
     except Exception as e:
         return f"❌ OpenAI APIで要約中にエラーが発生しました: {str(e)}"
