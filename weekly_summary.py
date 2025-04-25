@@ -2,6 +2,7 @@ import os
 import openai
 import feedparser
 import requests
+import re
 from datetime import datetime, timedelta, timezone
 from openai import OpenAI
 
@@ -70,19 +71,24 @@ def format_summary_for_slack(summary_text):
         if not line:
             continue
 
-        # ***見出し*** → *見出し*
-        if line.startswith('***') and line.endswith('***'):
-            clean_line = line.strip('*')
-            lines.append(f"*{clean_line}*")
-        elif line.startswith("- [詳細はこちら]") or "http" in line:
-            # リンク整形
-            url_start = line.find('(')
-            url_end = line.find(')')
-            if url_start != -1 and url_end != -1:
-                url = line[url_start+1:url_end]
+        # 「1. **タイトル**」→ 「**1. タイトル**」へ正規化
+        match = re.match(r'^(\d+)\.\s+\*\*(.+?)\*\*$', line)
+        if match:
+            number = match.group(1)
+            title = match.group(2)
+            lines.append(f"**{number}. {title}**")
+            continue
+
+        # 「- [詳細はこちら](URL)」→ Slackリンクに整形
+        if "http" in line and "(" in line and ")" in line:
+            start = line.find('(')
+            end = line.find(')')
+            if start != -1 and end != -1:
+                url = line[start+1:end]
                 lines.append(f"➡️ <{url}|▶ 詳細はこちら>")
-        else:
-            lines.append(line)
+                continue
+
+        lines.append(line)
 
     return "\n".join(lines)
 
