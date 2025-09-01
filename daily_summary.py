@@ -12,20 +12,22 @@ SLACK_WEBHOOK_URL = os.environ.get("SLACK_WEBHOOK_URL")
 openai.api_key = OPENAI_API_KEY
 client = OpenAI(api_key=os.environ.get("OPENAI_API_KEY"))
 
-# 1週間以内のAIニュースをRSSから取得
-def fetch_weekly_news_from_rss():
-    rss_url = "https://news.google.com/rss/search?q=AI+OR+ChatGPT+OR+生成AI+OR+LLM&hl=ja&gl=JP&ceid=JP:ja"
+# 直近24時間のAIニュースをRSSから取得
+def fetch_daily_news_from_rss():
+    rss_url = "https://news.google.com/rss/search?q=AI+OR+ChatGPT+OR+Gemini+OR+生成AI+OR+LLM&hl=ja&gl=JP&ceid=JP:ja"
     feed = feedparser.parse(rss_url)
 
     jst = timezone(timedelta(hours=9))
     now = datetime.now(jst)
-    week_ago = now - timedelta(days=7)
+    day_ago = now - timedelta(days=1)
 
     filtered_articles = []
+    seen = set()  # URL重複対策（簡易）
+
     for entry in feed.entries:
         if hasattr(entry, 'published_parsed'):
             published = datetime(*entry.published_parsed[:6], tzinfo=timezone.utc).astimezone(jst)
-            if published >= week_ago:
+            if published >= day_ago:
                 filtered_articles.append({
                     "title": entry.title,
                     "link": entry.link,
@@ -36,14 +38,14 @@ def fetch_weekly_news_from_rss():
 
 # OpenAI APIでAI関連のニュースを要約
 def summarize_ai_news(articles):
-    if not articles:
-        return "📭 過去1週間のAI関連ニュースは見つかりませんでした。"
+    if not articles or len(articles) == 0:
+        return "📭 過去24時間のAI関連ニュースは見つかりませんでした。"
 
     # ニュースを箇条書き形式で整形
     article_list = "\n".join([f"- {a['title']} ({a['link']})" for a in articles])
 
     prompt = f"""
-以下は過去1週間の技術ニュースのタイトル一覧です。この中から「AI」「生成AI」「機械学習」「ChatGPT」「LLM」「Claude」などに関する重要なニュースだけを選び、日本語で3〜5件に要約してください。必要に応じてURLも添えてください。
+以下は過去24時間の技術ニュースのタイトル一覧です。この中から「AI」「生成AI」「機械学習」「ChatGPT」「Gemini」「LLM」などに関する重要なニュースだけを選び、日本語で5件に要約してください。各項目は1〜2文で簡潔に。可能ならURLも残してください。
 
 {article_list}
 """
@@ -90,7 +92,7 @@ def format_summary_for_slack(summary_text):
                 lines.append(f"➡️ <{url}|▶ {text}>")
             continue
 
-        # 単純なURL行にも対応（「- 詳細はこちら: https://...」など）
+        # 単純なURL行にも対応
         if re.match(r'^(https?://\S+)$', line) or 'http' in line:
             url_match = re.search(r'(https?://[^\s\)]+)', line)
             if url_match:
@@ -108,7 +110,7 @@ def post_summary_to_slack(summary_text):
     formatted_text = format_summary_for_slack(summary_text)
 
     blocks = [
-        {"type": "section", "text": {"type": "mrkdwn", "text": "*📰 今週のAIニュースまとめ*"}},
+        {"type": "section", "text": {"type": "mrkdwn", "text": "*📰 今日のAIニュースまとめ*"}},
         {"type": "divider"},
         {"type": "section", "text": {"type": "mrkdwn", "text": formatted_text}},
         {"type": "divider"},
@@ -118,6 +120,6 @@ def post_summary_to_slack(summary_text):
 
 # 実行処理
 if __name__ == "__main__":
-    articles = fetch_weekly_news_from_rss()
+    articles = fetch_dailly_news_from_rss()
     summary = summarize_ai_news(articles)
     post_summary_to_slack(summary)
