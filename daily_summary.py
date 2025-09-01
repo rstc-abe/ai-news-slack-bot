@@ -120,6 +120,7 @@ def post_summary_to_slack(summary_text):
 
 # 実行処理
 if __name__ == "__main__":
-    articles = fetch_dailly_news_from_rss()
+    articles = fetch_daily_news_from_rss()
     summary = summarize_ai_news(articles)
     post_summary_to_slack(summary)
+
