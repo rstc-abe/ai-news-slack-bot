@@ -45,8 +45,16 @@ def summarize_ai_news(articles):
     article_list = "\n".join([f"- {a['title']} ({a['link']})" for a in articles])
 
     prompt = f"""
-以下は過去24時間の技術ニュースのタイトル一覧です。この中から「AI」「生成AI」「機械学習」「ChatGPT」「Gemini」「LLM」などに関する重要なニュースだけを選び、日本語で5件に要約してください。各項目は1〜2文で簡潔に。可能ならURLも残してください。
+以下は過去24時間の技術ニュースのタイトル一覧です。
+この中から「AI」「生成AI」「機械学習」「ChatGPT」「Gemini」「LLM」などに関する重要なニュースだけを選び、
+**以下のフォーマット**で日本語で5件にまとめてください。
 
+【出力フォーマット例】
+:小さいひし形_青: ニュースタイトル
+- ニュース本文の要約（1〜2文）
+:右矢印: :再生ボタン: 記事はこちら（URL）
+
+記事一覧:
 {article_list}
 """
 
@@ -123,6 +131,7 @@ if __name__ == "__main__":
     articles = fetch_daily_news_from_rss()
     summary = summarize_ai_news(articles)
     post_summary_to_slack(summary)
+
 
 
 
