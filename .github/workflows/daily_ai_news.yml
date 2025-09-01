@@ -1,8 +1,8 @@
-name: Weekly AI News Summary
+name: Daily AI News Summary
 
 on:
   schedule:
-    - cron: '0 22 * * 0'  # 毎週月曜 朝7:00 JST（= 日曜22:00 UTC）
+    - cron: '0 22 * * *'  # 毎日 朝7:00 JST（= 毎日 22:00 UTC）
   workflow_dispatch:
 
 jobs:
@@ -19,8 +19,8 @@ jobs:
       - name: Install dependencies
         run: pip install openai feedparser requests
 
-      - name: Run weekly summary script
-        run: python weekly_summary.py
+      - name: Run daily summary script
+        run: python daily_summary.py
         env:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
