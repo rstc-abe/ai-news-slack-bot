@@ -52,7 +52,7 @@ def summarize_ai_news(articles):
 
     try:
         response = client.chat.completions.create(
-            model="gpt-4o",
+            model="gpt-5",
             messages=[
                 {"role": "system", "content": "あなたはニュースを要約するアシスタントです。"},
                 {"role": "user", "content": prompt}
@@ -123,4 +123,5 @@ if __name__ == "__main__":
     articles = fetch_daily_news_from_rss()
     summary = summarize_ai_news(articles)
     post_summary_to_slack(summary)
+
 
