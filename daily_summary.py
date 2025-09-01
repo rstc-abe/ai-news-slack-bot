@@ -50,7 +50,7 @@ def summarize_ai_news(articles):
 **以下のフォーマット**で日本語で5件にまとめてください。
 
 【出力フォーマット例】
-**・ニュースタイトル**
+**ニュースタイトル**
 - ニュース本文の要約（1〜2文）
 :右矢印: :再生ボタン: 記事はこちら（URL）
 
@@ -131,6 +131,7 @@ if __name__ == "__main__":
     articles = fetch_daily_news_from_rss()
     summary = summarize_ai_news(articles)
     post_summary_to_slack(summary)
+
 
 
 
