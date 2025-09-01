@@ -56,8 +56,8 @@ def summarize_ai_news(articles):
             messages=[
                 {"role": "system", "content": "あなたはニュースを要約するアシスタントです。"},
                 {"role": "user", "content": prompt}
-            ],
-            temperature=0.4
+            ]
+
         )
 
         summary = response.choices[0].message.content
@@ -123,5 +123,6 @@ if __name__ == "__main__":
     articles = fetch_daily_news_from_rss()
     summary = summarize_ai_news(articles)
     post_summary_to_slack(summary)
+
 
 
